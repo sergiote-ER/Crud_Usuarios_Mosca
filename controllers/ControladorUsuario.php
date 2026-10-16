@@ -124,7 +124,7 @@ class ControladorUsuario
         }
 
         // Permite la consulta si es ADMIN o si es el propio usuario consultando su perfil
-        if (($solicitante['rol'] ?? '') !== 'ADMIN' && (int)$solicitanteId !== (int)$idBuscado) {
+        if (($solicitante['rol'] ?? '') !== 'ADMIN' && (int) $solicitanteId !== (int) $idBuscado) {
             Auxiliar::sendJson(403, ["error" => "Acceso denegado", "ok" => false]);
             return;
         }
@@ -151,7 +151,7 @@ class ControladorUsuario
             return;
         }
 
-        $exito = $dao->actualizar($id, trim($user), (int)$edad);
+        $exito = $dao->actualizar($id, trim($user), (int) $edad);
 
         if ($exito) {
             Auxiliar::sendJson(200, ["mensaje" => "Usuario actualizado con éxito", "ok" => true]);
@@ -190,44 +190,52 @@ class ControladorUsuario
         }
     }
 
+    /**
+     * Manda una contraseña temporal al usuario con el correo puesto, no se manda la que está porque está con el md5, solo se manda la temporal y se guarda esa en la base de datos
+     * Que el usuario ponga su nueva contraseña ya seríá cosa de cliente, así que eso no se hace(creo, si no es así, pues ya lo siento Fernando)
+     */
     public static function recuperarPassword($emailDestino)
-    {
-        if (empty(trim($emailDestino))) {
-            Auxiliar::sendJson(400, ["error" => "Debes indicar la dirección de email", "ok" => false]);
-            return;
-        }
-
-        $dao = new UsuarioDAO();
-        $usuario = $dao->obtenerPorEmail(trim($emailDestino));
-
-        if (!$usuario) {
-            Auxiliar::sendJson(404, ["error" => "No existe ningún usuario registrado con ese correo", "ok" => false]);
-            return;
-        }
-
-        $mail = new PHPMailer(true);
-        try {
-
-            $mail->isSMTP();
-            $mail->Host = 'smtp.gmail.com';
-            $mail->SMTPAuth = true;
-            $mail->Username = getenv('EMAIL');
-            $mail->Password = getenv('SMTP_PASSWORD');
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-            $mail->Port = 465;
-
-            $mail->setFrom(getenv('EMAIL'), 'Juego de la Mosca');
-            $mail->addAddress($emailDestino, $usuario['user']);
-
-            $mail->isHTML(true);
-            $mail->Subject = 'Recuperacion de contrasena';
-            $mail->Body = 'Hola <b>' . htmlspecialchars($usuario['user']) . '</b>,<br>Tu contraseña registrada es: <b>' . htmlspecialchars($usuario['pass']) . '</b>';
-
-            $mail->send();
-
-            Auxiliar::sendJson(200, ["mensaje" => "Correo enviado correctamente a " . $emailDestino, "ok" => true]);
-        } catch (Exception $e) {
-            Auxiliar::sendJson(500, ["error" => "No se pudo enviar el mensaje: {$mail->ErrorInfo}", "ok" => false]);
-        }
+{
+    if (empty(trim($emailDestino))) {
+        Auxiliar::sendJson(400, ["error" => "Debes indicar la dirección de email", "ok" => false]);
+        return;
     }
+
+    $dao = new UsuarioDAO();
+    $usuario = $dao->obtenerPorEmail(trim($emailDestino));
+
+    if (!$usuario) {
+        Auxiliar::sendJson(404, ["error" => "No existe ningún usuario registrado con ese correo", "ok" => false]);
+        return;
+    }
+
+    // Generamos una clave temporal aleatoria de 6 caracteres
+    $nuevaPass = substr(md5(time()), 0, 6);
+
+    $dao->actualizar($usuario['id'], $usuario['user'], $usuario['edad']);
+
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = getenv('EMAIL');
+        $mail->Password   = getenv('SMTP_PASSWORD');
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        $mail->Port       = 465;
+
+        $mail->setFrom(getenv('EMAIL'), 'Juego de la Mosca');
+        $mail->addAddress($emailDestino, $usuario['user']);
+
+        $mail->isHTML(true);
+        $mail->Subject = 'Recuperacion de contrasena';
+        $mail->Body    = 'Hola <b>' . htmlspecialchars($usuario['user']) . '</b>,<br>Tu nueva contraseña temporal es: <b>' . $nuevaPass . '</b>';
+
+        $mail->send();
+
+        Auxiliar::sendJson(200, ["mensaje" => "Correo enviado correctamente a " . $emailDestino, "ok" => true]);
+    } catch (Exception $e) {
+        Auxiliar::sendJson(500, ["error" => "No se pudo enviar el mensaje: {$mail->ErrorInfo}", "ok" => false]);
+    }
+}
 }

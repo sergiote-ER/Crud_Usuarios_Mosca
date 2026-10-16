@@ -26,18 +26,16 @@ try {
                 $usuarioId = Auxiliar::obtenerUsuarioId($datos);
                 ControladorMosca::verIntentos($usuarioId);
 
-                // GET /usuarios/
             } else if ($endpoint === "usuarios") {
+                $solicitanteId = Auxiliar::obtenerUsuarioId($datos);
+
                 if (isset($parametros[1]) && is_numeric($parametros[1])) {
                     // GET /usuarios/{id}
-                    $solicitanteId = Auxiliar::obtenerUsuarioId($datos);
                     ControladorUsuario::obtenerPorId($solicitanteId, intval($parametros[1]));
                 } else {
                     // GET /usuarios
-                    $solicitanteId = Auxiliar::obtenerUsuarioId($datos);
                     ControladorUsuario::obtenerTodos($solicitanteId);
                 }
-
             } else {
                 Auxiliar::sendJson(404, ["error" => "Ruta no encontrada", "ok" => false]);
             }
