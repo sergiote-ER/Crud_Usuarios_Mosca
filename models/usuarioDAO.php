@@ -1,5 +1,6 @@
 <?php
 require_once "database/database.php";
+
 class usuarioDAO
 {
     private $db;
@@ -12,9 +13,14 @@ class usuarioDAO
     public function registrarUsuario($user, $email, $pass, $edad, $rol)
     {
         $conexion = $this->db->connect();
+        
+        // Aplico el algoritmo MD5 a la clave antes de guardarla en mi tabla de MySQL
         $passMd5 = md5($pass);
 
+        // Uso una sentencia preparada para evitar ataques de inyección SQL
         $sentencia = $conexion->prepare("INSERT INTO usuarios (user, email, pass, edad, rol) VALUES (?, ?, ?, ?, ?)");
+        
+        // bind_param: s=string, s=string, s=string, i=integer, s=string
         $sentencia->bind_param("sssis", $user, $email, $passMd5, $edad, $rol);
 
         $exito = $sentencia->execute();
@@ -25,14 +31,13 @@ class usuarioDAO
 
         return $exito ? $idGenerado : false;
     }
-    
 
     public function loginUsuario($user, $pass)
     {
         $conexion = $this->db->connect();
         $passMd5 = md5($pass);
 
-        // Se corrige la consulta añadiendo "AND pass = ?" para comparar la contraseña MD5
+        // Compruebo en la base de datos tanto el usuario como la clave en MD5
         $sentencia = $conexion->prepare("SELECT id, user, email, pass, edad, rol FROM usuarios WHERE user = ? AND pass = ?");
         $sentencia->bind_param("ss", $user, $passMd5);
         $sentencia->execute();
@@ -42,13 +47,14 @@ class usuarioDAO
         $sentencia->close();
         $conexion->close();
 
-        return $resultado ?: false;
+        return $resultado ? $resultado : false;
     }
 
     public function actualizar($id, $user, $edad)
     {
         $conexion = $this->db->connect();
 
+        // Actualizo únicamente los campos que me pide el enunciado (user y edad)
         $sentencia = $conexion->prepare("UPDATE usuarios SET user = ?, edad = ? WHERE id = ?");
         $sentencia->bind_param("sii", $user, $edad, $id);
 
@@ -77,7 +83,7 @@ class usuarioDAO
     {
         $conexion = $this->db->connect();
 
-        // Se añade la columna 'rol' para que el controlador pueda validar permisos
+        // Incluyo la columna 'rol' para poder validar posteriormente los permisos del usuario en mi controlador
         $sentencia = $conexion->prepare("SELECT id, user, edad, email, rol FROM usuarios WHERE id = ?");
         $sentencia->bind_param("i", $id);
         $sentencia->execute();
@@ -103,7 +109,6 @@ class usuarioDAO
         $sentencia->bind_param("s", $email);
         $sentencia->execute();
 
-        // No sé si debería hacerlo en dos pasos como hago en otras funciones o solo en una, he probado de ambas y ambas funcionan
         $resultado = $sentencia->get_result()->fetch_assoc();
 
         $sentencia->close();
@@ -116,12 +121,11 @@ class usuarioDAO
     {
         $conexion = $this->db->connect();
 
-        // Se añade 'rol' a la selección de columnas
         $sentencia = $conexion->prepare("SELECT id, user, edad, email, rol FROM usuarios");
         $sentencia->execute();
         $resultado = $sentencia->get_result();
 
-        $usuarios = [];
+        $usuarios = array();
         while ($fila = $resultado->fetch_assoc()) {
             $usuarios[] = $fila;
         }
@@ -161,3 +165,4 @@ class usuarioDAO
         return $afectados > 0;
     }
 }
+?>
